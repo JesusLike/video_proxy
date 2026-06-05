@@ -42,12 +42,12 @@ public class StorageStack : Stack
             {
                 Version = PostgresEngineVersion.VER_18
             }),
-            InstanceType = InstanceType.Of(InstanceClass.T3, InstanceSize.MICRO),
+            InstanceType = Amazon.CDK.AWS.EC2.InstanceType.Of(InstanceClass.T3, InstanceSize.MICRO),
             Vpc = props.Vpc,
             VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PRIVATE_ISOLATED },
             SecurityGroups = new[] { props.DbSg },
             Credentials = Credentials.FromSecret(DbSecret),
-            MultiAz = false,
+            MultiAz = isProduction,
             StorageEncrypted = true,
             BackupRetention = Duration.Days(7),
             DeleteAutomatedBackups = !isProduction,
@@ -58,7 +58,6 @@ public class StorageStack : Stack
         VideoBucket = new Bucket(this, "VideoBucket", new BucketProps
         {
             BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
-            EnforceSSL = true,
             LifecycleRules = new[]
             {
                 new LifecycleRule { Expiration = Duration.Days(7), Enabled = true }
@@ -69,10 +68,9 @@ public class StorageStack : Stack
         AppBucket = new Bucket(this, "AppBucket", new BucketProps
         {
             BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
-            EnforceSSL = true,
             RemovalPolicy = RemovalPolicy.RETAIN
         });
 
-        Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
+        Amazon.CDK.Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
     }
 }

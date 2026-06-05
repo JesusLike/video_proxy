@@ -21,7 +21,7 @@ public class EcrStack : Stack
         MessagingServiceRepo = CreateRepo("MessagingService", "messaging-service", props);
         YoutubeServiceRepo = CreateRepo("YoutubeService", "youtube-service", props);
 
-        Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
+        Amazon.CDK.Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
     }
 
     private Repository CreateRepo(string id, string name, EcrStackProps props) =>

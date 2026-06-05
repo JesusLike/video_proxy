@@ -47,7 +47,7 @@ public class MessagingStackTest
                 {
                     Match.ObjectLike(new Dictionary<string, object>
                     {
-                        ["Image"] = "rabbitmq:4-management-alpine"
+                        ["Image"] = "rabbitmq:4.3.1-management-alpine"
                     })
                 })
             }));

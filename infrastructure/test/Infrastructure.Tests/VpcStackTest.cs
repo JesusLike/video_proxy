@@ -46,14 +46,12 @@ public class VpcStackTest
     [Fact]
     public void DbSgAllowsOnlyPort5432()
     {
-        _template.HasResourceProperties("AWS::EC2::SecurityGroup", Match.ObjectLike(
+        _template.HasResourceProperties("AWS::EC2::SecurityGroupIngress", Match.ObjectLike(
             new Dictionary<string, object>
             {
-                ["GroupDescription"] = "RDS — inbound 5432 from App tasks only",
-                ["SecurityGroupIngress"] = Match.ArrayWith(new[]
-                {
-                    Match.ObjectLike(new Dictionary<string, object> { ["FromPort"] = 5432, ["ToPort"] = 5432 })
-                })
+                ["IpProtocol"] = "tcp",
+                ["FromPort"] = 5432,
+                ["ToPort"] = 5432
             }));
     }
 

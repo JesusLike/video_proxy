@@ -84,10 +84,10 @@ public class VpcStack : Stack
             {
                 Name = $"{props.EnvConfig.EnvironmentName}.internal",
                 Vpc = Vpc,
-                Type = NamespaceType.DNS_PRIVATE
+                Type = Amazon.CDK.AWS.ServiceDiscovery.NamespaceType.DNS_PRIVATE
             }
         });
 
-        Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
+        Amazon.CDK.Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
     }
 }

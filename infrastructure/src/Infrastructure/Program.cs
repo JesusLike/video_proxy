@@ -48,13 +48,19 @@ var cloudFrontStack = new CloudFrontStack(app, $"{envName}-cloudfront", new Clou
 });
 cloudFrontStack.AddDependency(storageStack);
 
-var route53Stack = new Route53Stack(app, $"{envName}-route53", new Route53StackProps
+if (envName == "production")
 {
-    Env = awsEnv,
-    EnvConfig = config,
-    AppDistribution = cloudFrontStack.AppDistribution,
-    VideoDistribution = cloudFrontStack.VideoDistribution
-});
-route53Stack.AddDependency(cloudFrontStack);
+    var route53Stack = new Route53Stack(app, $"{envName}-route53", new Route53StackProps
+    {
+        Env = awsEnv,
+        EnvConfig = config,
+        AppDistribution = cloudFrontStack.AppDistribution,
+        VideoDistribution = cloudFrontStack.VideoDistribution,
+        DkimTokenNames = new[] { messagingStack.DkimTokenName1, messagingStack.DkimTokenName2, messagingStack.DkimTokenName3 },
+        DkimTokenValues = new[] { messagingStack.DkimTokenValue1, messagingStack.DkimTokenValue2, messagingStack.DkimTokenValue3 }
+    });
+    route53Stack.AddDependency(cloudFrontStack);
+    route53Stack.AddDependency(messagingStack);
+}
 
 app.Synth();
