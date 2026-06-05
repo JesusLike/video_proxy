@@ -1,6 +1,6 @@
 services:
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    image: rabbitmq:4.3.1-management-alpine
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -11,7 +11,7 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18.4-alpine
     ports:
       - "5432:5432"
     environment:
