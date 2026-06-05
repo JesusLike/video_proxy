@@ -64,4 +64,45 @@ public class MessagingStackTest
     {
         _template.ResourceCountIs("AWS::SES::EmailIdentity", 1);
     }
+
+    [Fact]
+    public void HasEfsFileSystem()
+    {
+        _template.ResourceCountIs("AWS::EFS::FileSystem", 1);
+    }
+
+    [Fact]
+    public void RabbitMqMountsEfsAtDataDirectory()
+    {
+        _template.HasResourceProperties("AWS::ECS::TaskDefinition", Match.ObjectLike(
+            new Dictionary<string, object>
+            {
+                ["Volumes"] = Match.ArrayWith(
+                [
+                    Match.ObjectLike(new Dictionary<string, object>
+                    {
+                        ["Name"] = "rabbitmq-data",
+                        ["EFSVolumeConfiguration"] = Match.ObjectLike(new Dictionary<string, object>
+                        {
+                            ["TransitEncryption"] = "ENABLED"
+                        })
+                    })
+                ]),
+                ["ContainerDefinitions"] = Match.ArrayWith(
+                [
+                    Match.ObjectLike(new Dictionary<string, object>
+                    {
+                        ["MountPoints"] = Match.ArrayWith(
+                        [
+                            Match.ObjectLike(new Dictionary<string, object>
+                            {
+                                ["ContainerPath"] = "/var/lib/rabbitmq",
+                                ["SourceVolume"] = "rabbitmq-data",
+                                ["ReadOnly"] = false
+                            })
+                        ])
+                    })
+                ])
+            }));
+    }
 }

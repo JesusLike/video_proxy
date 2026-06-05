@@ -1,11 +1,14 @@
 using Amazon.CDK;
 using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ECS;
+using Amazon.CDK.AWS.EFS;
 using Amazon.CDK.AWS.Logs;
 using Amazon.CDK.AWS.SES;
 using Amazon.CDK.AWS.SecretsManager;
 using Constructs;
 using EcsSecret = Amazon.CDK.AWS.ECS.Secret;
+using EcsVolume = Amazon.CDK.AWS.ECS.Volume;
+using EfsFileSystem = Amazon.CDK.AWS.EFS.FileSystem;
 using SmSecret = Amazon.CDK.AWS.SecretsManager.Secret;
 
 namespace Infrastructure.Stacks;
@@ -49,7 +52,44 @@ public class MessagingStack : Stack
             Cpu = 256
         });
 
-        taskDef.AddContainer("rabbitmq", new ContainerDefinitionOptions
+        // EFS for durable /var/lib/rabbitmq — without this, queue definitions and
+        // unacknowledged messages are lost on every task restart or deployment.
+        var efsFs = new EfsFileSystem(this, "RabbitEfs", new FileSystemProps
+        {
+            Vpc = props.Vpc,
+            VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PUBLIC },
+            Encrypted = true,
+            RemovalPolicy = isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY
+        });
+        // Allow the RabbitMQ Fargate task to connect to EFS on port 2049
+        efsFs.Connections.AllowDefaultPortFrom(props.RabbitSg);
+        // Grant IAM auth for the access point
+        efsFs.Grant(taskDef.TaskRole, "elasticfilesystem:ClientMount", "elasticfilesystem:ClientWrite");
+
+        var accessPoint = efsFs.AddAccessPoint("RabbitDataAP", new AccessPointOptions
+        {
+            Path = "/rabbitmq",
+            // rabbitmq:4-alpine runs as UID/GID 999
+            CreateAcl = new Acl { OwnerUid = "999", OwnerGid = "999", Permissions = "750" },
+            PosixUser = new PosixUser { Uid = "999", Gid = "999" }
+        });
+
+        taskDef.AddVolume(new EcsVolume
+        {
+            Name = "rabbitmq-data",
+            EfsVolumeConfiguration = new EfsVolumeConfiguration
+            {
+                FileSystemId = efsFs.FileSystemId,
+                TransitEncryption = "ENABLED",
+                AuthorizationConfig = new AuthorizationConfig
+                {
+                    AccessPointId = accessPoint.AccessPointId,
+                    Iam = "ENABLED"
+                }
+            }
+        });
+
+        var container = taskDef.AddContainer("rabbitmq", new ContainerDefinitionOptions
         {
             Image = ContainerImage.FromRegistry("rabbitmq:4.3.1-management-alpine"),
             Environment = new Dictionary<string, string>
@@ -84,6 +124,13 @@ public class MessagingStack : Stack
             })
         });
 
+        container.AddMountPoints(new MountPoint
+        {
+            ContainerPath = "/var/lib/rabbitmq",
+            SourceVolume = "rabbitmq-data",
+            ReadOnly = false
+        });
+
         new FargateService(this, "RabbitService", new FargateServiceProps
         {
             Cluster = props.Cluster,
@@ -91,6 +138,7 @@ public class MessagingStack : Stack
             SecurityGroups = new[] { props.RabbitSg },
             AssignPublicIp = true,
             DesiredCount = 1,
+            PlatformVersion = FargatePlatformVersion.VERSION1_4,
             CloudMapOptions = new CloudMapOptions
             {
                 Name = "rabbitmq",
