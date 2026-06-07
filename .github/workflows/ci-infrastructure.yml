@@ -1,0 +1,49 @@
+name: CI — Infrastructure
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/**'
+
+jobs:
+  build-and-test:
+    name: Build, synth, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: 'infrastructure/**/*.csproj'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install CDK CLI
+        run: npm ci
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Synth (testing)
+        env:
+          CDK_DEFAULT_ACCOUNT: '123456789012'
+          CDK_DEFAULT_REGION: us-east-1
+        run: npx cdk synth --app "dotnet run --no-build --project src/Infrastructure" --context env=testing --context domain=ci.example.com
+
+      - name: Test
+        run: dotnet test --no-restore --no-build

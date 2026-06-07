@@ -1,0 +1,7 @@
+{
+  "name": "infrastructure",
+  "private": true,
+  "devDependencies": {
+    "aws-cdk": "2"
+  }
+}
