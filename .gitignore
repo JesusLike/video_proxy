@@ -12,3 +12,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+infrastructure/cdk.context.json
+infrastructure/cdk.out/
+infrastructure/node_modules/

@@ -139,6 +139,11 @@ public class MessagingStack : Stack
             AssignPublicIp = true,
             DesiredCount = 1,
             PlatformVersion = FargatePlatformVersion.VERSION1_4,
+            // Single task — allow it to stop before the replacement starts
+            MinHealthyPercent = 0,
+            MaxHealthyPercent = 100,
+            // Roll back automatically if the new task fails to stabilise
+            CircuitBreaker = new DeploymentCircuitBreaker { Rollback = true },
             CloudMapOptions = new CloudMapOptions
             {
                 Name = "rabbitmq",
