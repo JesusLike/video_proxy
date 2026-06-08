@@ -21,6 +21,8 @@ public class VpcStack : Stack
 
     public VpcStack(Construct scope, string id, VpcStackProps props) : base(scope, id, props)
     {
+        var isProduction = props.EnvConfig.EnvironmentName == "production";
+
         Vpc = new Vpc(this, "Vpc", new VpcProps
         {
             MaxAzs = 2,
@@ -45,7 +47,7 @@ public class VpcStack : Stack
         AlbSg = new SecurityGroup(this, "AlbSg", new SecurityGroupProps
         {
             Vpc = Vpc,
-            Description = "ALB — internet-facing 80/443",
+            Description = "ALB - internet-facing 80/443",
             AllowAllOutbound = true
         });
         AlbSg.AddIngressRule(Peer.AnyIpv4(), Port.Tcp(80), "HTTP");
@@ -54,7 +56,7 @@ public class VpcStack : Stack
         AppSg = new SecurityGroup(this, "AppSg", new SecurityGroupProps
         {
             Vpc = Vpc,
-            Description = "Fargate tasks — inbound from ALB only",
+            Description = "Fargate tasks - inbound from ALB only",
             AllowAllOutbound = true
         });
         AppSg.AddIngressRule(AlbSg, Port.AllTraffic(), "From ALB");
@@ -62,7 +64,7 @@ public class VpcStack : Stack
         DbSg = new SecurityGroup(this, "DbSg", new SecurityGroupProps
         {
             Vpc = Vpc,
-            Description = "RDS — inbound 5432 from App tasks only",
+            Description = "RDS - inbound 5432 from App tasks only",
             AllowAllOutbound = false
         });
         DbSg.AddIngressRule(AppSg, Port.Tcp(5432), "PostgreSQL from App tasks");
@@ -70,11 +72,12 @@ public class VpcStack : Stack
         RabbitSg = new SecurityGroup(this, "RabbitSg", new SecurityGroupProps
         {
             Vpc = Vpc,
-            Description = "RabbitMQ — inbound 5672/15672 from App tasks only",
+            Description = "RabbitMQ - inbound from App tasks",
             AllowAllOutbound = true
         });
         RabbitSg.AddIngressRule(AppSg, Port.Tcp(5672), "AMQP from App tasks");
-        RabbitSg.AddIngressRule(AppSg, Port.Tcp(15672), "Management UI from App tasks");
+        if (!isProduction)
+            RabbitSg.AddIngressRule(AppSg, Port.Tcp(15672), "Management UI from App tasks");
 
         Cluster = new Cluster(this, "Cluster", new ClusterProps
         {

@@ -14,12 +14,14 @@ public class EcrStack : Stack
     public Repository UserServiceRepo { get; }
     public Repository MessagingServiceRepo { get; }
     public Repository YoutubeServiceRepo { get; }
+    public Repository RabbitMqRepo { get; }
 
     public EcrStack(Construct scope, string id, EcrStackProps props) : base(scope, id, props)
     {
         UserServiceRepo = CreateRepo("UserService", "user-service", props);
         MessagingServiceRepo = CreateRepo("MessagingService", "messaging-service", props);
         YoutubeServiceRepo = CreateRepo("YoutubeService", "youtube-service", props);
+        RabbitMqRepo = CreateRepo("RabbitMq", "rabbitmq", props);
 
         Amazon.CDK.Tags.Of(this).Add("Environment", props.EnvConfig.EnvironmentName);
     }

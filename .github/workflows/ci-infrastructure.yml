@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'infrastructure/**'
+  push:
+    branches: [master]
+    paths:
+      - 'infrastructure/**'
 
 jobs:
   build-and-test:
@@ -43,7 +47,47 @@ jobs:
         env:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-east-1
         run: npx cdk synth --app "dotnet run --no-build --project src/Infrastructure" --context env=testing --context domain=ci.example.com
+
+      - name: Assert no real account ID in cdk.json
+        run: |
+          if grep -E '"availability-zones:account=' cdk.json | grep -qv 'account=123456789012:'; then
+            echo "ERROR: A real AWS account ID was found in cdk.json."
+            echo "Run 'git checkout infrastructure/cdk.json' to discard local synth output before committing."
+            exit 1
+          fi
 
       - name: Test
         run: dotnet test --no-restore --no-build
+
+  push-rabbitmq-image:
+    name: Push RabbitMQ image to ECR
+    needs: build-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push RabbitMQ images to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPO: testing/rabbitmq
+        run: |
+          for TAG in 4.3.1-alpine 4.3.1-management-alpine; do
+            docker pull rabbitmq:$TAG
+            docker tag  rabbitmq:$TAG $REGISTRY/$REPO:$TAG
+            docker push $REGISTRY/$REPO:$TAG
+          done

@@ -23,21 +23,23 @@ var storageStack = new StorageStack(app, $"{envName}-storage", new StorageStackP
 });
 storageStack.AddDependency(vpcStack);
 
+var ecrStack = new EcrStack(app, $"{envName}-ecr", new EcrStackProps
+{
+    Env = awsEnv,
+    EnvConfig = config
+});
+
 var messagingStack = new MessagingStack(app, $"{envName}-messaging", new MessagingStackProps
 {
     Env = awsEnv,
     EnvConfig = config,
     Vpc = vpcStack.Vpc,
     Cluster = vpcStack.Cluster,
-    RabbitSg = vpcStack.RabbitSg
+    RabbitSg = vpcStack.RabbitSg,
+    RabbitMqRepo = ecrStack.RabbitMqRepo
 });
 messagingStack.AddDependency(vpcStack);
-
-var ecrStack = new EcrStack(app, $"{envName}-ecr", new EcrStackProps
-{
-    Env = awsEnv,
-    EnvConfig = config
-});
+messagingStack.AddDependency(ecrStack);
 
 var cloudFrontStack = new CloudFrontStack(app, $"{envName}-cloudfront", new CloudFrontStackProps
 {

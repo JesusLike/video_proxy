@@ -1,6 +1,7 @@
 {
   "app": "dotnet run --project src/Infrastructure",
   "context": {
+    "availability-zones:account=123456789012:region=us-east-1": ["us-east-1a", "us-east-1b"],
     "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
     "@aws-cdk/core:stackRelativeExports": true,
     "@aws-cdk/aws-rds:lowercaseDbIdentifier": true,
