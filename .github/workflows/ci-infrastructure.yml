@@ -2,16 +2,29 @@ name: CI — Infrastructure
 
 on:
   pull_request:
-    paths:
-      - 'infrastructure/**'
   push:
     branches: [master]
-    paths:
-      - 'infrastructure/**'
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/ci-infrastructure.yml'
+
   build-and-test:
     name: Build, synth, test
+    needs: changes
+    if: needs.changes.outputs.infrastructure == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,10 +74,18 @@ jobs:
       - name: Test
         run: dotnet test --no-restore --no-build
 
+  ci-status:
+    name: Infrastructure CI
+    needs: [build-and-test]
+    if: always()
+    uses: ./.github/workflows/_ci-status.yml
+    with:
+      result: ${{ needs.build-and-test.result }}
+
   push-rabbitmq-image:
     name: Push RabbitMQ image to ECR
-    needs: build-and-test
-    if: github.event_name == 'push'
+    needs: [changes, build-and-test]
+    if: needs.changes.outputs.infrastructure == 'true' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -75,7 +96,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: us-east-1
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr

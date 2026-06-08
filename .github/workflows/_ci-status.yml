@@ -1,0 +1,21 @@
+name: CI Status
+
+on:
+  workflow_call:
+    inputs:
+      result:
+        required: true
+        type: string
+
+jobs:
+  status:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate
+        run: |
+          if [[ "${{ inputs.result }}" =~ ^(success|skipped)$ ]]; then
+            exit 0
+          else
+            exit 1
+          fi
