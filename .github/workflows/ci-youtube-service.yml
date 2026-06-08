@@ -1,0 +1,58 @@
+name: CI — YouTube Service
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.filter.outputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - 'services/youtube-service/**'
+              - '.github/workflows/ci-youtube-service.yml'
+
+  build-and-test:
+    name: Build, test
+    needs: changes
+    if: needs.changes.outputs.service == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/youtube-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'services/youtube-service/requirements*.txt'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build Docker image
+        run: docker build .
+
+      - name: Test
+        run: pytest
+
+  ci-status:
+    name: YouTube Service CI
+    needs: [build-and-test]
+    if: always()
+    uses: ./.github/workflows/_ci-status.yml
+    with:
+      result: ${{ needs.build-and-test.result }}
