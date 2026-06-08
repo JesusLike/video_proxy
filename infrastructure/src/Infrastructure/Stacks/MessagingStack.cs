@@ -1,5 +1,6 @@
 using Amazon.CDK;
 using Amazon.CDK.AWS.EC2;
+using Amazon.CDK.AWS.ECR;
 using Amazon.CDK.AWS.ECS;
 using Amazon.CDK.AWS.EFS;
 using Amazon.CDK.AWS.Logs;
@@ -19,6 +20,7 @@ public class MessagingStackProps : StackProps
     public required Vpc Vpc { get; init; }
     public required Cluster Cluster { get; init; }
     public required SecurityGroup RabbitSg { get; init; }
+    public required IRepository RabbitMqRepo { get; init; }
 }
 
 public class MessagingStack : Stack
@@ -57,7 +59,7 @@ public class MessagingStack : Stack
         var efsFs = new EfsFileSystem(this, "RabbitEfs", new FileSystemProps
         {
             Vpc = props.Vpc,
-            VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PUBLIC },
+            VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PRIVATE_ISOLATED },
             Encrypted = true,
             RemovalPolicy = isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY
         });
@@ -91,7 +93,10 @@ public class MessagingStack : Stack
 
         var container = taskDef.AddContainer("rabbitmq", new ContainerDefinitionOptions
         {
-            Image = ContainerImage.FromRegistry("rabbitmq:4.3.1-management-alpine"),
+            Image = ContainerImage.FromEcrRepository(props.RabbitMqRepo, isProduction
+                ? "4.3.1-alpine"
+                : "4.3.1-management-alpine"),
+            User = "999",
             Environment = new Dictionary<string, string>
             {
                 ["RABBITMQ_DEFAULT_USER"] = "app"
@@ -100,11 +105,12 @@ public class MessagingStack : Stack
             {
                 ["RABBITMQ_DEFAULT_PASS"] = EcsSecret.FromSecretsManager(RabbitSecret, "password")
             },
-            PortMappings = new[]
-            {
-                new PortMapping { ContainerPort = 5672, Name = "amqp" },
-                new PortMapping { ContainerPort = 15672, Name = "management" }
-            },
+            PortMappings = isProduction
+                ? [new PortMapping { ContainerPort = 5672, Name = "amqp" }]
+                : [
+                    new PortMapping { ContainerPort = 5672, Name = "amqp" },
+                    new PortMapping { ContainerPort = 15672, Name = "management" }
+                  ],
             HealthCheck = new HealthCheck
             {
                 Command = new[] { "CMD", "rabbitmq-diagnostics", "check_port_connectivity" },
@@ -118,8 +124,9 @@ public class MessagingStack : Stack
                 StreamPrefix = "rabbitmq",
                 LogGroup = new LogGroup(this, "RabbitLogGroup", new LogGroupProps
                 {
+                    LogGroupName = $"/ecs/{props.EnvConfig.EnvironmentName}/rabbitmq",
                     Retention = RetentionDays.ONE_WEEK,
-                    RemovalPolicy = isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY
+                    RemovalPolicy = RemovalPolicy.RETAIN
                 })
             })
         });
@@ -136,6 +143,7 @@ public class MessagingStack : Stack
             Cluster = props.Cluster,
             TaskDefinition = taskDef,
             SecurityGroups = new[] { props.RabbitSg },
+            VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PUBLIC },
             AssignPublicIp = true,
             DesiredCount = 1,
             PlatformVersion = FargatePlatformVersion.VERSION1_4,

@@ -56,12 +56,20 @@ public class VpcStackTest
     }
 
     [Fact]
-    public void RabbitSgAllowsPorts5672And15672()
+    public void RabbitSgAllowsPorts5672And15672InTesting()
     {
         _template.HasResourceProperties("AWS::EC2::SecurityGroup", Match.ObjectLike(
             new Dictionary<string, object>
             {
-                ["GroupDescription"] = "RabbitMQ — inbound 5672/15672 from App tasks only"
+                ["GroupDescription"] = "RabbitMQ - inbound from App tasks"
+            }));
+        // Management UI port open only in non-production environments
+        _template.HasResourceProperties("AWS::EC2::SecurityGroupIngress", Match.ObjectLike(
+            new Dictionary<string, object>
+            {
+                ["IpProtocol"] = "tcp",
+                ["FromPort"] = 15672,
+                ["ToPort"] = 15672
             }));
     }
 

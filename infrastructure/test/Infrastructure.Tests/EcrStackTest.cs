@@ -25,9 +25,9 @@ public class EcrStackTest
     }
 
     [Fact]
-    public void HasThreeRepositories()
+    public void HasFourRepositories()
     {
-        _template.ResourceCountIs("AWS::ECR::Repository", 3);
+        _template.ResourceCountIs("AWS::ECR::Repository", 4);
     }
 
     [Fact]
@@ -54,5 +54,8 @@ public class EcrStackTest
 
         _template.HasResourceProperties("AWS::ECR::Repository", Match.ObjectLike(
             new Dictionary<string, object> { ["RepositoryName"] = "testing/youtube-service" }));
+
+        _template.HasResourceProperties("AWS::ECR::Repository", Match.ObjectLike(
+            new Dictionary<string, object> { ["RepositoryName"] = "testing/rabbitmq" }));
     }
 }

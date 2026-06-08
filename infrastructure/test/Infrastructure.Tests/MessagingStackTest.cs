@@ -21,12 +21,14 @@ public class MessagingStackTest
             DomainName = "example.com"
         };
         var vpcStack = new VpcStack(app, "test-vpc", new VpcStackProps { EnvConfig = config });
+        var ecrStack = new EcrStack(app, "test-ecr", new EcrStackProps { EnvConfig = config });
         var stack = new MessagingStack(app, "test-messaging", new MessagingStackProps
         {
             EnvConfig = config,
             Vpc = vpcStack.Vpc,
             Cluster = vpcStack.Cluster,
-            RabbitSg = vpcStack.RabbitSg
+            RabbitSg = vpcStack.RabbitSg,
+            RabbitMqRepo = ecrStack.RabbitMqRepo
         });
         _template = Template.FromStack(stack);
     }
@@ -38,17 +40,23 @@ public class MessagingStackTest
     }
 
     [Fact]
-    public void RabbitMqUsesCorrectImage()
+    public void TaskExecutionRoleCanPullFromEcr()
     {
-        _template.HasResourceProperties("AWS::ECS::TaskDefinition", Match.ObjectLike(
+        // CDK grants ecr:BatchGetImage + ecr:GetDownloadUrlForLayer to the execution role
+        // when ContainerImage.FromEcrRepository is used
+        _template.HasResourceProperties("AWS::IAM::Policy", Match.ObjectLike(
             new Dictionary<string, object>
             {
-                ["ContainerDefinitions"] = Match.ArrayWith(new[]
+                ["PolicyDocument"] = Match.ObjectLike(new Dictionary<string, object>
                 {
-                    Match.ObjectLike(new Dictionary<string, object>
-                    {
-                        ["Image"] = "rabbitmq:4.3.1-management-alpine"
-                    })
+                    ["Statement"] = Match.ArrayWith(
+                    [
+                        Match.ObjectLike(new Dictionary<string, object>
+                        {
+                            ["Action"] = Match.ArrayWith(["ecr:BatchGetImage"]),
+                            ["Effect"] = "Allow"
+                        })
+                    ])
                 })
             }));
     }
