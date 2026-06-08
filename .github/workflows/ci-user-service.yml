@@ -1,0 +1,60 @@
+name: CI — User Service
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.filter.outputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - 'services/user-service/**'
+              - '.github/workflows/ci-user-service.yml'
+
+  build-and-test:
+    name: Build, test
+    needs: changes
+    if: needs.changes.outputs.service == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/user-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Build Docker image
+        run: docker build .
+
+      - name: Test
+        run: dotnet test --no-restore --no-build
+
+  ci-status:
+    name: User Service CI
+    needs: [build-and-test]
+    if: always()
+    uses: ./.github/workflows/_ci-status.yml
+    with:
+      result: ${{ needs.build-and-test.result }}
